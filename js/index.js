@@ -75,6 +75,9 @@ function createTiles(image, cols, rows) {
 function createPuzzle(img, container) {
 	const cols = container.dataset.cols || 10
 	const rows = container.dataset.rows || 10
+	for (let name in container.dataset) {
+		container.removeAttribute(`data-${name}`)
+	}
 	const colSize = 100 / cols
 	const rowSize = 100 / rows
 	const tiles = createTiles(img, cols, rows)
@@ -98,11 +101,6 @@ function makeProtectedPicture(container) {
 	img.setAttribute("crossOrigin", "anonymous")
 	container.style.width = `${container.dataset.width || img.width}px`
 	container.style.height = `${container.dataset.height || img.height}px`
-	container.removeAttribute("data-base")
-	container.removeAttribute("data-src")
-	// for (let name in container.dataset) {
-	// 	container.removeAttribute(`data-${name}`)
-	// }
 	return new Promise((resolve, reject) => {
 		img.addEventListener("load", e => {
 			resolve(createPuzzle(img, container))
