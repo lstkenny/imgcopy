@@ -114,7 +114,7 @@ document.querySelectorAll(imageSelector).forEach(container => {
 			styles.push([
 				`#${layer.id}`,
 					["background-image", `url(${tile.src})`],
-					["background-size", `${100 / pcs + 0.05}%`],
+					["background-size", `${100 / pcs}%`],
 					["background-position", `${tile.rx}% ${tile.ry}%`],
 			])
 			container.appendChild(layer)
