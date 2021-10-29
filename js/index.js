@@ -21,20 +21,6 @@ function addStylesheetRules (rules) {
 		)
 	}
 }
-function getTileSrc(image, x, y, w, h) {
-	const cnv = document.createElement("canvas")
-	cnv.width = w
-	cnv.height = h
-	const ctx = cnv.getContext("2d")
-	ctx.drawImage(
-		image,
-		x * w, y * h,
-		w, h,
-		0, 0,
-		cnv.width, cnv.height
-	)
-	return cnv.toDataURL()
-}
 function shuffle(a) {
 	let ci = a.length, 
 		ri
@@ -52,12 +38,26 @@ function* getId(range = 100) {
 		yield `t${index.toString(16)}`
 	}
 }
-function createTiles(image, cols, rows) {
-	const width = image.width / cols
-	const height = image.height / rows
+function getTileSrc(image, col, row, width, height, overlap) {
+	const cnv = document.createElement("canvas")
+	cnv.width = width + overlap
+	cnv.height = height + overlap
+	const ctx = cnv.getContext("2d")
+	ctx.drawImage(
+		image,
+		col * width, row * height,
+		width + overlap, height + overlap,
+		0, 0,
+		cnv.width, cnv.height
+	)
+	return cnv.toDataURL()
+}
+function createTiles(img, cols, rows, overlap) {
+	const width = img.width / cols
+	const height = img.height / rows
 	const tiles = []
-	const relWidth = (100 / (cols - 1))
-	const relHeight = (100 / (rows - 1))
+	const relWidth = 100 / (cols - 1) * (1 + overlap / img.width)
+	const relHeight = 100 / (rows - 1) * (1 + overlap / img.height)
 	for (let col = 0; col < cols; col++) {
 		for (let row = 0; row < rows; row++) {
 			const relX = col * relWidth
@@ -66,21 +66,36 @@ function createTiles(image, cols, rows) {
 				col, row,
 				relX, relY,
 				width, height,
-				src: getTileSrc(image, col, row, width, height)
+				src: getTileSrc(img, col, row, width, height, overlap)
 			})
 		}
 	}
-	return shuffle(tiles)
+	return tiles
 }
-function createPuzzle(img, container) {
-	const cols = container.dataset.cols || 10
-	const rows = container.dataset.rows || 10
-	for (let name in container.dataset) {
-		container.removeAttribute(`data-${name}`)
+function setContainerSize(img, container) {
+	let width = container.dataset.width
+	let height = container.dataset.height
+	if (!width && !height) {
+		width = img.width
+		height = img.height
+	} else if (!width) {
+		width = height * img.width / img.height
+	} else if (!height) {
+		height = width * img.height / img.width
 	}
-	const colSize = 100 / cols
-	const rowSize = 100 / rows
-	const tiles = createTiles(img, cols, rows)
+	container.style.width = `${width}px`
+	container.style.height = `${height}px`
+}
+function createPuzzle(img, container, overlap) {
+	setContainerSize(img, container)
+	const cols = container.dataset.cols || options.cols
+	const rows = container.dataset.rows || options.rows
+	const colSize = 100 * (1 / cols + overlap / img.width)
+	const rowSize = 100 * (1 / rows + overlap / img.height)
+	let tiles = createTiles(img, cols, rows, Number(overlap))
+	if (container.dataset.shuffle) {
+		tiles = shuffle(tiles)
+	}
 	const styles = []
 	tiles.forEach(tile => {
 		const layer = document.createElement("div")
@@ -93,25 +108,27 @@ function createPuzzle(img, container) {
 		])
 		container.appendChild(layer)
 	})
+	for (let name in container.dataset) {
+		container.removeAttribute(`data-${name}`)
+	}
 	return styles
 }
 function makeProtectedPicture(container) {
 	const img = document.createElement("img")
 	img.setAttribute("src", `${container.dataset.base}/${container.dataset.src}`)
 	img.setAttribute("crossOrigin", "anonymous")
-	container.style.width = `${container.dataset.width || img.width}px`
-	container.style.height = `${container.dataset.height || img.height}px`
 	return new Promise((resolve, reject) => {
 		img.addEventListener("load", e => {
-			resolve(createPuzzle(img, container))
+			resolve(createPuzzle(img, container, container.dataset.overlap || options.overlap))
 		})
 	})
 }
 async function processImages(imageSelector) {
-	const imageContainerClass = "pimg-container"
+	const imageContainerClass = options.imageContainerClass
 	let styles = [
 		[`.${imageContainerClass}`,
-			["position", "relative"]
+			["position", "relative"],
+			// ["background-image", "url(img/grid120.png)"],
 		],
 		[`.${imageContainerClass} div`,
 			["position", "absolute"],
@@ -119,7 +136,7 @@ async function processImages(imageSelector) {
 			["right", "0"],
 			["bottom", "0"],
 			["left", "0"],
-			["background-repeat", "no-repeat"]
+			["background-repeat", "no-repeat"],
 		]
 	]
 	let rules = []
@@ -134,4 +151,12 @@ async function processImages(imageSelector) {
 	addStylesheetRules(styles)
 }
 const idGen = getId()
-processImages('[data-type="pimg"]')
+const options = {
+	overlap: 4,
+	cols: 10,
+	rows: 10,
+	imageContainerClass: "pimg-container",
+	imageSelector: "[data-type=\"pimg\"]",
+
+}
+processImages(options.imageSelector)
